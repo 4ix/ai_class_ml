@@ -1,4 +1,40 @@
 # HG_MLDL
+## 2023-01-12(목)
+### 3-02 선형 회귀
+1. 선형 회귀
+```
+from sklearn.linear_model import LinearRegression # 임포트
+lr = LinearRegression() # 객체생성
+lr.fit(train_input, train_target) # 선형 회귀 모델 훈련
+print(lr.predict([[50]])) # 50에 대한 예측
+print(lr.coef_, lr.intercept_) #coef_: 기울기, 가중치
+```
+
+2. 다항 회귀(다항식을 사용한 선형 회귀)
+```
+train_poly = np.column_stack((train_input**2, train_input))
+test_poly = np.column_stack((test_input**2, test_input))
+lr = LinearRegression()
+lr.fit(train_poly, train_target) # 목표하는 값은 어떤 그래프를 훈련하든지 바꿀 필요 없음
+print(lr.predict([[50**2, 50]]))
+
+```
+- 가장 잘 맞는 직선의 방정식을 찾는다는 것은 최적의 기울기(coef_)와 절편(intercept_)을 구한다는 의미.
+- 음수 리턴 해결하기 위해 다항 회귀 사용(2차 방정식)
+
+### 3-03 특성 공학과 규제
+1. 다중 회귀(여러 개의 특성을 사용한 선형 회귀)
+- 특성 공학: 기존 특성을 사용해 새로운 특성을 뽑아내는 작업
+
+2. 사이킷런의 변환기
+```
+from sklearn.preprocessing import PolynomialFeatures # 임포트
+poly = PolynomialFeatures() # 객체 생성
+poly.fit([[2,3]]) # 훈련(학습)
+print(poly.transform([[2,3]])) # 변형
+```
+- PolynomialFeatures 클래스는 기본적으로 각 특성을 제곱한 항을 추가하고 특성끼리 곱한 항을 추가함.
+
 ## 2023-01-11(수)
 ### 2-02 데이터 전처리.ipynb(스케일이 다른 특성 처리)
 1. 넘파이 함수

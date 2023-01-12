@@ -35,6 +35,72 @@ print(poly.transform([[2,3]])) # 변형
 ```
 - PolynomialFeatures 클래스는 기본적으로 각 특성을 제곱한 항을 추가하고 특성끼리 곱한 항을 추가함.
 
+```
+
+poly = PolynomialFeatures(include_bias=False) # 절편을 위한 항(1) 제거 후 제곱과 특성끼리 곱한 항만 리턴
+...
+poly.get_feature_names_out() #9개의 특성이 어떻게 만들어졌는지 확인
+```
+
+3. 다중 회귀 모델 훈련하기
+- PolynomialFeatures에 degree를 지정해 줄 수 있음
+```
+poly2 = PolynomialFeatures(degree=5, include_bias=False)
+print(lr.score(train_poly2, train_target)) # 특성의 개수가 크게 늘어났기 때문에 훈련 세트에 대해 거의 완벽하게 학습
+print(lr.score(test_poly2, test_target)) # 단, 테스트 세트에서는 형편없는 점수를 만듬 (샘플의 개수가 특성의 수보다 적어서)
+```
+
+4. 규제
+- StandardScaler 사용
+```
+from sklearn.preprocessing import StandardScaler
+ss = StandardScaler() # 객체 생성
+ss.fit(train_poly2) # 학습
+train_scaled = ss.transform(train_poly2) # 변형
+test_scaled = ss.transform(test_poly2) # 변형 (훈련 세트로 학습한 변환기를 사용해 테스트 세트까지 변환해야 함)
+```
+
+5. 릿지 회귀
+```
+from sklearn.linear_model import Ridge
+ridge = Ridge() # 객체생성
+ridge.fit(train_scaled, train_target) #학습
+print(ridge.score(train_scaled, train_target)) # 훈련 세트 평가
+print(ridge.score(test_scaled, test_target)) # 테스트 세트 평가
+```
+- 객체를 만들 때 alpha 매개변수로 규제의 강도 조절
+- alpha 값이 크면 규제 강도가 세지므로 계수 값을 더 줄여 조금 더 과소적합되도록 유도
+- alpha 값이 작으면 계수를 줄이는 역할이 줄어들기 대문에 과대적합될 가능성이 큼
+- 하이퍼파라미터: 사람이 직접 지정해야 하는 매개변수 (학습변수)
+
+```
+alpha_list = [0.001, 0.01, 0.1, 1, 10, 100]
+for alpha in alpha_list:
+  ridge = Ridge(alpha=alpha)
+  ridge.fit(train_scaled, train_target)
+  train_score.append(ridge.score(train_scaled, train_target))
+  test_score.append(ridge.score(test_scaled, test_target))
+
+plt.plot(np.log10(alpha_list), train_score) # alpha_list에 있는 6개의 값을 동일한 간격으로 나타내기 위해 로그 함수로 바꾸어 지수로 표현
+
+ridge = Ridge(alpha=0.1) # 최적의 알파값 선정 후 대입
+```
+
+6. 라쏘 회귀
+```
+from sklearn.linear_model import Lasso
+lasso = Lasso()
+lasso.fit(train_scaled, train_target)
+print(lasso.score(train_scaled, train_target))
+print(lasso.score(test_scaled, test_target))
+
+print(np.sum(lasso.coef_==0)) # 라쏘 모델은 계수 값을 아예 0으로 만들 수 있음, 0의 개수 체크
+print(lasso.coef_)
+```
+- 55개의 특성을 모델에 주입했지만 라쏘 모델이 사용한 특성은 15개임 (55-40)
+- 라쏘 모델은 유용한 특성을 골라내는 용도로도 사용할 수 있음
+
+
 ## 2023-01-11(수)
 ### 2-02 데이터 전처리.ipynb(스케일이 다른 특성 처리)
 1. 넘파이 함수

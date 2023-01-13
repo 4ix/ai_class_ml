@@ -1,4 +1,83 @@
 # HG_MLDL
+## 2023-01-13(금)
+### 4-01 로지스틱 회귀
+1. k-최근접 이웃 분류기의 확률 예측
+- 다중 분류: 타깃 데이터에 2개 이상의 클래스가 포함된 문제
+```
+print(kn.classes_) # 타깃값을 사이킷런 모델에 전달하면 순서가 자동으로 알파벳 순으로 정렬됨
+print(kn.predict(test_scaled[:5])) # 테스트 세트에 있는 처음 5개 샘플 값 예측
+
+proba = kn.predict_proba(test_scaled[:5]) # 클래스에 대한 확률 구하기. predict_proba. predict_proba의 출력은 항상 0과 1 사이의 값이며 두 클래스에 대한 확률의 합은 항상 1임.
+```
+[지도 학습 - 분류 예측의 불확실성 추정](https://subinium.github.io/MLwithPython-2-4/)
+
+2. 로지스틱 회귀
+- 로지스틱 회귀로 이진 분류 수행
+```
+# 넘파이 불리언 인덱싱
+char_arr = np.array(['A','B','C','D','E'])
+print(char_arr[[True, False, True, False, False]])
+
+bream_smelt_indexes = (train_target == 'Bream') | (train_target == 'Smelt')
+train_bream_smelt = train_scaled[bream_smelt_indexes]
+target_bream_smelt = train_target[bream_smelt_indexes]
+
+print(lr.predict_proba(train_bream_smelt[:5])) # 예측 확률, 첫번째 열이 0에 대한 확률, 두번째 열이 1에 대한 확률 (2개의 생선(이진)으로 학습했으므로 2개 열 리턴)
+
+decisions = lr.decision_function(train_bream_smelt[:5]) # z값 계산
+
+from scipy.special import expit # 시그모이드 함수(expit, z값을 넣으면 확률을 얻을 수 있음)
+print(expit(decisions)) # proba의 두번째 열과 값이 동일. 양성(1) 클래스에 대한 z값 리턴
+```
+
+- 로지스틱 회귀로 다중 분류 수행하기
+```
+lr = LogisticRegression(C=20, max_iter=1000) # max_iter로 반복횟수 지정. 기본값 100. 규제 제어 매개변수 C. 작을수록 규제가 커짐. 기본값 1.
+lr.fit(train_scaled, train_target) # 7개의 생선 데이터가 모두 들어있는것으로 학습
+
+proba = lr.predict_proba(test_scaled[:5])
+print(np.round(proba, decimals=3)) # 7개 생선 데이터로 학습했기 때문에 7개의 열이 리턴(샘플마다 클래스 개수만큼 확률 출력)
+
+print(lr.coef_.shape, lr.intercept_.shape) # 5개의 특성을 사용하므로 coef_ 배열의 열은 5개
+```
+
+- 다중 분류는 클래스마다 z 값을 하나씩 계산
+- 소프트맥스 함수를 사용하여 7개의 z값을 확률로 변환
+```
+decision = lr.decision_function(test_scaled[:5]) # z값 구하기
+print(np.round(decision, decimals=2))
+
+from scipy.special import softmax
+proba = softmax(decision, axis=1) # axis=1, 행(샘플)에 대해 지정
+print(np.round(proba, decimals=3))
+```
+
+### 4-02 확률적 경사 하강법
+1. 점진적인 학습
+- 확률적이란 말은 '무작위하게' 혹은 '랜덤하게' 라는 뜻
+- 훈련 세트에서 랜덤하게 하나의 샘플을 고르는 것
+- 에포크: 훈련 세트를 한 번 모두 사용하는 과정
+- 미니배치 경사 하강법: 여러 개의 샘플을 사용해 경사 하강법을 수행하는 방식
+- 배치 경사 하강법: 전체 샘플을 사용하는 방법(컴퓨터 자원을 많이 사용함)
+
+2. 손실 함수: 머신러닝 알고리즘이 얼마나 엉터리인지를 측정하는 기준
+
+3. 로지스틱 손실 함수
+- 로지스틱 손실 함수: 이진 분류에서 사용하는 손실 함수
+- 크로스엔트로피 손실 함수: 다중 분류에서 사용하는 손실 함수
+- 평균 제곱 오차: 타깃에서 예측을 뺀 값을 제곱한 다음 모든 샘플에 평균한 값. 작을 수록 좋은 모델
+
+4. SGDClassifier
+- 확률적 경사 하강법 클래스 = SGDClassifier
+```
+from sklearn.linear_model import SGDClassifier
+
+sc = SGDClassifier(loss='log', max_iter=10, random_state=42) # loss=log, 로지스틱 손실 함수, max_iter 수행할 에포크 횟수
+sc.fit(train_scaled, train_target)
+sc.partial_fit(train_scaled, train_target) # 1 에포크씩 이어서 훈련 가능함.
+```
+
+
 ## 2023-01-12(목)
 ### 3-02 선형 회귀
 1. 선형 회귀

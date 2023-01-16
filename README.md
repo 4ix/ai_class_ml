@@ -1,4 +1,141 @@
 # HG_MLDL
+## 2023-01-16(월)
+### 4-02 확률적 경사 하강법 (충분히 반복하여 훈련하면 훈련 세트에서 높은 점수를 얻는 모델을 만들 수 있음)
+1. 에포크와 과대/과소적합
+- 조기 종료: 과대 적합이 시작하기 전에 훈련을 멈추는 것
+```
+for _ in range(300): # 적절한 에포크 횟수 찾기 위한 반복문
+  sc.partial_fit(train_scaled, train_target, classes = classes)
+  train_score.append(sc.score(train_scaled, train_target))
+  test_score.append(sc.score(test_scaled, test_target))
+
+sc = SGDClassifier(loss='log', max_iter=100, tol=None, random_state=42) # tol 매개변수를 None으로 지정하여 자동으로 멈추지 않고 max_iter=100 만큼 무조건 반복되도록 함
+```
+
+### 5-01 결정 트리
+1. 로지스틱 회귀로 와인 분류하기
+```
+# 1. train_test_split
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(data, target, test_size=0.2, random_state=42)
+
+# 2. 훈련세트 전처리, 테스트 세트 변환
+from sklearn.preprocessing import StandardScaler
+ss = StandardScaler()
+ss.fit(train_input)
+train_scaled = ss.transform(train_input)
+test_scaled = ss.transform(test_input)
+
+# 3. 로지스틱 회귀 모델 훈련
+from sklearn.linear_model import LogisticRegression
+lr = LogisticRegression()
+lr.fit(train_scaled, train_target)
+print(lr.score(train_scaled, train_target))
+print(lr.score(test_scaled, test_target))
+```
+
+2. 결정 트리
+```
+from sklearn.tree import DecisionTreeClassifier
+dt = DecisionTreeClassifier(random_state=42)
+```
+
+3.  지니 불순도(gini)
+- 루트 노드에서 당도 -0.239 기준으로 나온 이유 → ★ 각 특성들의 정보 이득(Information Gain) 숫자가 제일 작은 특성이 가장 루트 노드 기준으로 감
+- 불순도 기준을 사용해 정보 이득이 최대가 되도록 노드 분할
+- 마지막에 도달한 노드의 클래스 비율을 보고 예측
+
+4. 가지치기
+- 자라날 수 있는 트리의 최대 깊이를 지정
+
+### 5-02 교차 검증과 그리드 서치
+1. 검증 세트
+- 테스트 세트를 사용하지 않고 이를 측정하는 간단한 방법은 훈련 세트를 나누는 것
+```
+# 1. 훈련 세트와 테스트 세트 나누기
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(data,target,test_size=0.2, random_state=42)
+
+# 1-2. 훈련세트를 검증 세트로 나누기
+sub_input, val_input, sub_target, val_target = train_test_split(train_input, train_target, test_size=0.2, random_state=42)
+```
+
+2. 교차 검증
+- 검증 세트를 떼어 내어 평가하는 과정을 여러 번 반복 후 이 점수를 평균하여 최종 검증 점수를 얻음
+```
+# cross_validate() 교차 검증 함수
+from sklearn.model_selection import cross_validate
+scores = cross_validate(dt, train_input, train_target)
+
+# 교차 검증의 최종 점수
+print(np.mean(scores['test_score']))
+
+# cross_validate()는 훈련 세트를 섞어 폴드를 나누지 않음.
+from sklearn.model_selection import StratifiedKFold
+scores = cross_validate(dt, train_input, train_target, cv=StratifiedKFold()) # 교차 검증에서 폴드를 어떻게 나눌지 결정해줌
+
+# 훈련 세트를 섞은 후 10-폴드 교차 검증 수행 방법
+splitter = StratifiedKFold(n_splits=10, shuffle=True, random_state=42)
+scores = cross_validate(dt, train_input, train_target, cv=splitter)
+```
+
+3. 하이퍼파라미터 튜닝
+- GridSearchCV 클래스로 하이퍼파라미터 탐색과 교차 검증을 한번에 수행
+```
+from sklearn.model_selection import GridSearchCV
+params = {'min_impurity_decrease':[0.0001, 0.0002, 0.0003, 0.0004, 0.0005]}
+gs = GridSearchCV(DecisionTreeClassifier(random_state=42), params, n_jobs=-1) # 객체 생성
+gs.fit(train_input, train_target) # 학습
+```
+
+- 훈련 모델 중에서 검증 점수가 가장 높은 모델의 매개변수 조합으로 전체 훈련 세트에서 자동으로 다시 모델 훈련
+```
+dt = gs.best_estimator_
+print(dt.score(train_input, train_target))
+```
+- 최적의 매개변수는 best_params_ 속성에 저장
+```
+print(gs.best_params_)
+```
+
+- 각 매개변수에서 수행한 교차 검증의 평균 점수는 cv_results_에 저장
+```
+print(gs.cv_results_['mean_test_score']) # 5-fold의 테스트 평균값
+```
+
+- 최상의 매개변수 조합 확인
+```
+print(gs.best_params_)
+```
+
+- 최상의 교차 검증 점수 확인
+```
+print(np.max(gs.cv_results_['mean_test_score']))
+```
+
+4. 랜덤 서치
+- 매개변수 값의 목록을 전달하는 것이 아니라 매개변수를 샘플링할 수 있는 확률분포 객체 전달
+- 싸이파이(scipy): 수치 계산 전용 라이브러리
+```
+from scipy.stats import uniform, randint
+
+# randint 정수
+rgen = randint(0,10) # 0 ~ 10 사이의 숫자중에
+rgen.rvs(10) # 10개를 뽑아낸다
+
+# uniform 실수
+ugen = uniform(0,1)
+ugen.rvs(10)
+```
+
+- 샘플링 횟수는 RandomizedSearchCV의 n_iter 매개변수에 지정
+```
+from sklearn.model_selection import RandomizedSearchCV
+gs = RandomizedSearchCV(DecisionTreeClassifier(random_state=42), params, n_iter=100, n_jobs=-1, random_state=42)
+gs.fit(train_input, train_target)
+```
+
+
 ## 2023-01-13(금)
 ### 4-01 로지스틱 회귀
 1. k-최근접 이웃 분류기의 확률 예측

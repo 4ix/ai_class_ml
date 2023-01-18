@@ -1,14 +1,97 @@
 # HG_MLDL
+## 2023-01-18(수)
+### 6-02 K 평균
+1. 최적의 K 찾기
+- 엘보우 방법: 적절한 클러스터 개수 찾기
+- 이너셔(inertia): 클러스터 중심과 클러스터에 속한 샘플 사이의 거리. 클러스터에 속한 샘플이 얼마나 가깝게 모여 있는지.
+```
+inertia = []
+for k in range(2,7):
+  km = KMeans(n_clusters=k, random_state=42)
+  km.fit(fruits_2d)
+  inertia.append(km.inertia_)
+plt.plot(range(2,7), inertia)
+plt.xlabel('k')
+plt.ylabel('inertia')
+plt.show()
+```
+
+### 6-03 주성분 분석
+1. 차원과 차원 축소: 차원(특성)을 줄일 수 있다는 건 저장 공간 절약 가능성 있음
+
+2. PCA 클래스(압축)
+```
+from sklearn.decomposition import PCA
+pca = PCA(n_components=50)
+pca.fit(fruits_2d)
+
+fruits_pca = pca.transform(fruits_2d)
+print(fruits_pca.shape)
+```
+
+3. 원본 데이터 재구성
+```
+fruits_inverse = pca.inverse_transform(fruits_pca) # 특성 복원
+```
+
+4. 설명된 분산
+- 주성분이 원본 데이터의 분산을 얼마나 잘 나타내는지
+```
+print(np.sum(pca.explained_variance_ratio_)) # 원본 데이터의 92퍼센트를 유지
+plt.plot(pca.explained_variance_ratio_) # 처음 10개의 주성분이 대부분의 분산을 표현
+```
+
+
 ## 2023-01-17(화)
 ### 5-03 트리의 앙상블
 1. 랜덤 포레스트
+- 랜덤하게 선택한 샘플과 특성을 사용
+- 훈련세트 과대적합 예방
+- 검증 세트와 테스트 세트에서 안정적인 성능 기대
+```
+# 교차 검증 수행
+from sklearn.model_selection import cross_validate
+from sklearn.ensemble import RandomForestClassifier
+rf = RandomForestClassifier(n_jobs=-1, random_state=42)
+scores = cross_validate(rf, train_input, train_target, return_train_score=True, n_jobs=-1)
+print(np.mean(scores['train_score']), np.mean(scores['test_score']))
+
+# 랜덤 포레스트의 특성 중요도는 각 결정 트리의 특성 중요도를 취합한 것
+rf.fit(train_input, train_target)
+print(rf.feature_importances_) # 기존 결정 트리와 비교해서 중요도가 변한 이유? 랜덤 포레스트가 특성의 일부를 랜덤하게 선택하여 결정 트리를 훈련하기 때문 -> 과대적합을 줄이고 일반화 성능 높일 수 있음
+
+# 랜덤 포레스트는 훈련 세트에서 중복을 허용하여 부트스트랩 샘플을 만들어 결정 트리를 훈련함
+rf = RandomForestClassifier(oob_score=True, n_jobs=-1, random_state=42)
+rf.fit(train_input, train_target)
+print(rf.oob_score_) # OOB 점수를 사용하면 교차 검증을 대신할 수 있음 -> 훈련 세트에 더 많은 샘플 사용 가능
+```
 
 2. 엑스트라 트리
+- 부트스트랩 샘플 사용 안함
+- 노드를 무작위로 분할
+- 많은 트리를 앙상블 하기 때문에 과대적합 예방 및 검증 세트 점수 높이는 효과
 
 3. 그레이디언트 부스팅
+- 깊이가 얕은 결정트리 사용, 이전 트리의 오차 보완
+- 과대적합에 강하고 높은 일반화 성능 기대
+- 경사 하강법의 가장 낮은 곳을 찾아 내려오는 방법은 모델의 가중치와 절편을 조금씩 바꾸는 것
+```
+gb = GradientBoostingClassifier(n_estimators=500, learning_rate=0.2, random_state=42) # 결정트리 개수 500으로 설정. 기본 100.
+scores = cross_validate(gb, train_input, train_target, return_train_score=True, n_jobs=-1)
+print(np.mean(scores['train_score']), np.mean(scores['test_score']))
+```
 
 4. 히스토그램 기반 그레이디언트 부스팅
+- 입력 특성(샘플)을 256개 구간으로 나눔
+- 성능을 높이려면 max_iter 매개변수 테스트
+```
+# 중요도 계산 (importances 특성 중요도, importances_mean 평균, importances_std 표준편차)
+from sklearn.inspection import permutation_importance
 
+hgb.fit(train_input, train_target)
+result=permutation_importance(hgb, train_input, train_target, n_repeats=10, random_state=42, n_jobs=-1) # 랜덤하게 10회 섞음
+print(result.importances_mean)
+```
 
 ### 6-01 군집 알고리즘
 1. 픽셀값 분석하기
@@ -17,7 +100,15 @@
 
 ### 6-02 K 평균
 1. 클러스터 중심
+```
+draw_fruits(km.cluster_centers_.reshape(-1,100,100),ratio=3) # 클러스터 중심은 cluster_centers_ 속성에 저장되어 있음
 
+# 훈련 데이터 샘플에서 클러스터 중심까지 거리
+print(km.transform(fruits_2d[100:101]))
+
+# 가장 가까운 클러스터 중심을 예측으로 출력
+print(km.predict(fruits_2d[100:101]))
+```
 
 ## 2023-01-16(월)
 ### 4-02 확률적 경사 하강법 (충분히 반복하여 훈련하면 훈련 세트에서 높은 점수를 얻는 모델을 만들 수 있음)
